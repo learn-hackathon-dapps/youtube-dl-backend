@@ -29,10 +29,6 @@ app.get("/test", async (req, res) => {
   }]);
 })
 
-const downloadYoutubeVideo = async (youtubeUrl, filename) => {
-  return ytdl(youtubeUrl).pipe(fs.createWriteStream(filename))
-}
-
 app.post("/downloadVideoFromYoutube", async (req, res) => {
   console.log("Getting video from youtube");
   console.log(__dirname);
@@ -40,29 +36,28 @@ app.post("/downloadVideoFromYoutube", async (req, res) => {
   const json = req.body;
   const youtubeUrl = json.url;
   const videoId = youtubeUrl.split('v=')[1];
-  const filename = videoId + ".mp4";
+  const filename = "./videos/"  + videoId + ".mp4";
   var cid;
   // Get video info
   try {
-    video = await downloadYoutubeVideo(youtubeUrl, filename)
-                    .then(async () =>{
-                      const storage = new Web3Storage.Web3Storage( {token} );
-                      const stream = fs.createReadStream(filename)
-                      cid = await storage.put([{ name: filename, stream: () => stream }])
-                      console.log('Content added with CID:', cid)
-    })
+      ytdl(youtubeUrl)
+      .pipe(fs.createWriteStream(filename))
+      .on('close', async () => {
+        const storage = new Web3Storage.Web3Storage({ token });
+        const files = await Web3Storage.getFilesFromPath('./videos');
+        cid = await storage.put(files);
+        console.log('cid: ' + cid);
+        res
+        .status(200)
+        .json({
+          message: "Download from youtube was a success",
+          cid: cid,
+          status: 200
+        });
+      });
   } catch (e) {
     console.log(e);
     return null;
-  }
-  if(cid) {
-    res
-    .status(200)
-    .json({
-      message: "Download from youtube was a success",
-      cid: cid,
-      status: 200
-    });
   }
 })
 
